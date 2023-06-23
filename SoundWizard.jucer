@@ -17,7 +17,8 @@
   <EXPORTFORMATS>
     <VS2022 targetFolder="Builds/VisualStudio2022">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="SoundWizard"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="SoundWizard" enablePluginBinaryCopyStep="1"
+                       vst3BinaryLocation="C:\Program Files\VST3"/>
         <CONFIGURATION isDebug="0" name="Release" targetName="SoundWizard"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
