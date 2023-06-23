@@ -88,6 +88,7 @@ const juce::String SoundWizardAudioProcessor::getProgramName(int index)
 
 void SoundWizardAudioProcessor::changeProgramName(int index, const juce::String& newName)
 {
+
 }
 
 //==============================================================================
@@ -107,7 +108,6 @@ void SoundWizardAudioProcessor::prepareToPlay(double sampleRate, int samplesPerB
 
 	leftChain.prepare(spec);
 	rightChain.prepare(spec);
-
 }
 
 void SoundWizardAudioProcessor::releaseResources()
@@ -157,7 +157,16 @@ void SoundWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 	for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
 		buffer.clear(i, 0, buffer.getNumSamples());
 
-//We need to extract left and right chanel from buffer
+//Update coeffitients in programm
+	auto chainSettings = getChainSettings(apvts);
+	
+	auto peekCoefficient = juce::dsp::IIR::Coefficients<float>::makePeakFilter(getSampleRate(), chainSettings.peakFreq, chainSettings.peakQuality, juce::Decibels::decibelsToGain(chainSettings.peakGainDecibels));
+
+	*leftChain.get<ChainPossition::Peak>().coefficients = *peekCoefficient;
+	*rightChain.get<ChainPossition::Peak>().coefficients = *peekCoefficient;
+
+
+	//We need to extract left and right chanel from buffer
 
 	juce::dsp::AudioBlock<float> block(buffer);
 
@@ -197,6 +206,22 @@ void SoundWizardAudioProcessor::setStateInformation(const void* data, int sizeIn
 	// whose contents will have been created by the getStateInformation() call.
 }
 
+ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& apvts)
+{
+	ChainSettings settings;
+
+	settings.lowCutFreq = apvts.getRawParameterValue("LowCut Freq")->load();
+	settings.peakFreq = apvts.getRawParameterValue("Peak Freq")->load();
+	settings.peakGainDecibels = apvts.getRawParameterValue("Peak Gain")->load();
+	settings.peakQuality = apvts.getRawParameterValue("Peak Quality")->load();
+	settings.highCutFreq = apvts.getRawParameterValue("HighCut Freq")->load();
+
+
+	settings.lowCutSlope = apvts.getRawParameterValue("LowCut Slope")->load();
+	settings.HighCutSlop = apvts.getRawParameterValue("HighCut Slope")->load();
+
+	return settings;
+}
 //Equalization layout
 juce::AudioProcessorValueTreeState::ParameterLayout SoundWizardAudioProcessor::createParameterLayout()
 {
@@ -204,49 +229,46 @@ juce::AudioProcessorValueTreeState::ParameterLayout SoundWizardAudioProcessor::c
 
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		"LowCut Freq",
-		"LowCut Freq", 
-		juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 1.f), 
+		"LowCut Freq",
+		juce::NormalisableRange<float>(20.f, 20000.f, 1.f, .25f),
 		20.f));
 
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		"Peak Freq",
-		"Peak Freq", 
-		juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 1.f), 
+		"Peak Freq",
+		juce::NormalisableRange<float>(20.f, 20000.f, 1.f, .25f),
 		750.f));
 
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		"Peak Gain",
-		"Peak Gain", 
-		juce::NormalisableRange<float>(-24.f, 24.f, 0.5f, 1.f), 
+		"Peak Gain",
+		juce::NormalisableRange<float>(-24.f, 24.f, 0.5f, 1.f),
 		0.f));
 
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		"Peak Quality",
-		"Peak Quality", 
-		juce::NormalisableRange<float>(.1f, 10.f, .05f, 1.f), 
+		"Peak Quality",
+		juce::NormalisableRange<float>(.1f, 10.f, .05f, 1.f),
 		1.f));
 
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		"HighCut Freq",
-		"HighCut Freq", 
-		juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 1.f), 
+		"HighCut Freq",
+		juce::NormalisableRange<float>(20.f, 20000.f, 1.f, .25f),
 		20000.f));
 
-//Choises for Slopes
+	//Choises for Slopes
 	juce::StringArray stringArray;
 	for (auto i = 0; i < 4; i++)
 	{
 		juce::String str;
-		str << (12 + i*12);
+		str << (12 + i * 12);
 		str << " db/Oct";
 		stringArray.add(str);
 	}
 
 	layout.add(std::make_unique<juce::AudioParameterChoice>("LowCut Slope", "LowCut Slope", stringArray, 0));
 	layout.add(std::make_unique<juce::AudioParameterChoice>("HighCut Slope", "HighCut Slope", stringArray, 0));
-
-
-
 
 	return layout;
 }
