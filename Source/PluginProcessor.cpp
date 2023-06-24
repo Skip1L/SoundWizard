@@ -96,6 +96,7 @@ void SoundWizardAudioProcessor::prepareToPlay(double sampleRate, int samplesPerB
 	// Use this method as the place to do any pre-playback
 	// initialisation that you need..
 
+
 //Prepare two chanels output
 	juce::dsp::ProcessSpec spec;
 
@@ -159,14 +160,7 @@ void SoundWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 	//Update coeffitients in programm
 	auto chainSettings = getChainSettings(apvts);
 
-	auto peekCoefficient = juce::dsp::IIR::Coefficients<float>::makePeakFilter(
-		getSampleRate(),
-		chainSettings.peakFreq,
-		chainSettings.peakQuality,
-		juce::Decibels::decibelsToGain(chainSettings.peakGainDecibels));
-
-	*leftChain.get<ChainPossition::Peak>().coefficients = *peekCoefficient;
-	*rightChain.get<ChainPossition::Peak>().coefficients = *peekCoefficient;
+	updatePeakFilter(chainSettings);
 
 	auto cutCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(
 		chainSettings.lowCutFreq,
@@ -373,6 +367,23 @@ juce::AudioProcessorValueTreeState::ParameterLayout SoundWizardAudioProcessor::c
 	layout.add(std::make_unique<juce::AudioParameterChoice>("HighCut Slope", "HighCut Slope", stringArray, 0));
 
 	return layout;
+}
+
+void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSettings)
+{
+	auto peekCoefficient = juce::dsp::IIR::Coefficients<float>::makePeakFilter(
+		getSampleRate(),
+		chainSettings.peakFreq,
+		chainSettings.peakQuality,
+		juce::Decibels::decibelsToGain(chainSettings.peakGainDecibels));
+
+	updateCoefficient(leftChain.get<ChainPossition::Peak>().coefficients, peekCoefficient);
+	updateCoefficient(rightChain.get<ChainPossition::Peak>().coefficients, peekCoefficient);
+}
+
+void SoundWizardAudioProcessor::updateCoefficient(Coefficients& old, const Coefficients& replacements)
+{
+	*old = *replacements;
 }
 
 //==============================================================================
