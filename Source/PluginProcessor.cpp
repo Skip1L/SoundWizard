@@ -156,21 +156,8 @@ void SoundWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 	for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
 		buffer.clear(i, 0, buffer.getNumSamples());
 
-	//Update coeffitients in programm
-	auto chainSettings = getChainSettings(apvts);
-
-	updatePeakFilter(chainSettings);
-
-	auto cutCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(
-		chainSettings.lowCutFreq,
-		getSampleRate(),
-		(chainSettings.lowCutSlope + 1) * 2);
-
-	auto& leftLowCut = leftChain.get<ChainPossition::LowCut>();
-	updateCutFilter(leftLowCut, cutCoefficients, chainSettings.lowCutSlope);
-
-	auto& rightLowCut = rightChain.get<ChainPossition::LowCut>();
-	updateCutFilter(rightLowCut, cutCoefficients, chainSettings.lowCutSlope);
+	//Update coeffitients
+	updateFilters();
 
 	//We need to extract left and right chanel from buffer
 
@@ -217,10 +204,10 @@ ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& apvts)
 	ChainSettings settings;
 
 	settings.lowCutFreq = apvts.getRawParameterValue("LowCut Freq")->load();
+	settings.highCutFreq = apvts.getRawParameterValue("HighCut Freq")->load();
 	settings.peakFreq = apvts.getRawParameterValue("Peak Freq")->load();
 	settings.peakGainDecibels = apvts.getRawParameterValue("Peak Gain")->load();
 	settings.peakQuality = apvts.getRawParameterValue("Peak Quality")->load();
-	settings.highCutFreq = apvts.getRawParameterValue("HighCut Freq")->load();
 
 	settings.lowCutSlope = static_cast<Slope>(apvts.getRawParameterValue("LowCut Slope")->load());
 	settings.highCutSlope = static_cast<Slope>(apvts.getRawParameterValue("HighCut Slope")->load());
@@ -237,6 +224,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout SoundWizardAudioProcessor::c
 		"LowCut Freq",
 		juce::NormalisableRange<float>(20.f, 20000.f, 1.f, .25f),
 		20.f));
+
+	layout.add(std::make_unique<juce::AudioParameterFloat>(
+		"HighCut Freq",
+		"HighCut Freq",
+		juce::NormalisableRange<float>(20.f, 20000.f, 1.f, .25f),
+		20000.f));
 
 	layout.add(std::make_unique<juce::AudioParameterFloat>(
 		"Peak Freq",
@@ -256,12 +249,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout SoundWizardAudioProcessor::c
 		juce::NormalisableRange<float>(.1f, 10.f, .05f, 1.f),
 		1.f));
 
-	layout.add(std::make_unique<juce::AudioParameterFloat>(
-		"HighCut Freq",
-		"HighCut Freq",
-		juce::NormalisableRange<float>(20.f, 20000.f, 1.f, .25f),
-		20000.f));
-
 	//Choises for Slopes
 	juce::StringArray stringArray;
 	for (auto i = 0; i < 4; i++)
@@ -278,6 +265,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout SoundWizardAudioProcessor::c
 	return layout;
 }
 
+void SoundWizardAudioProcessor::updateCoefficients(Coefficients& old, const Coefficients& replacements)
+{
+	*old = *replacements;
+}
+
 void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSettings)
 {
 	auto peekCoefficient = juce::dsp::IIR::Coefficients<float>::makePeakFilter(
@@ -290,9 +282,40 @@ void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSetti
 	updateCoefficients(rightChain.get<ChainPossition::Peak>().coefficients, peekCoefficient);
 }
 
-void SoundWizardAudioProcessor::updateCoefficients(Coefficients& old, const Coefficients& replacements)
+void SoundWizardAudioProcessor::updateLowCutFilters(const ChainSettings& chainSettings)
 {
-	*old = *replacements;
+	auto lowCutCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(
+		chainSettings.lowCutFreq,
+		getSampleRate(),
+		(chainSettings.lowCutSlope + 1) * 2);
+
+	auto& leftLowCut = leftChain.get<ChainPossition::LowCut>();
+	auto& rightLowCut = rightChain.get<ChainPossition::LowCut>();
+	updateCutFilter(leftLowCut, lowCutCoefficients, chainSettings.lowCutSlope);
+	updateCutFilter(rightLowCut, lowCutCoefficients, chainSettings.lowCutSlope);
+}
+
+void SoundWizardAudioProcessor::updateHighCutFilters(const ChainSettings& chainSettings)
+{
+	auto highCutCoefficients = juce::dsp::FilterDesign<float>::designIIRLowpassHighOrderButterworthMethod(
+		chainSettings.highCutFreq,
+		getSampleRate(),
+		(chainSettings.highCutSlope + 1) * 2);
+
+	auto& leftHighCut = leftChain.get<ChainPossition::HighCut>();
+	auto& rightHighCut = rightChain.get<ChainPossition::HighCut>();
+	updateCutFilter(leftHighCut, highCutCoefficients, chainSettings.highCutSlope);
+	updateCutFilter(rightHighCut, highCutCoefficients, chainSettings.highCutSlope);
+}
+
+void SoundWizardAudioProcessor::updateFilters()
+{
+	auto chainSettings = getChainSettings(apvts);
+
+	updatePeakFilter(chainSettings);
+
+	updateLowCutFilters(chainSettings);
+	updateHighCutFilters(chainSettings);
 }
 
 template<typename ChainType, typename CoefficientType>
