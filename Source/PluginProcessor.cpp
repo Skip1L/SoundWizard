@@ -169,99 +169,11 @@ void SoundWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 
 	auto& leftLowCut = leftChain.get<ChainPossition::LowCut>();
 
-	leftLowCut.setBypassed<0>(true);
-	leftLowCut.setBypassed<1>(true);
-	leftLowCut.setBypassed<2>(true);
-	leftLowCut.setBypassed<3>(true);
-
-	switch (chainSettings.lowCutSlope)
-	{
-	case S_12:
-	{
-		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
-		leftLowCut.setBypassed<0>(false);
-		break;
-	}
-	case S_24:
-	{
-		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
-		leftLowCut.setBypassed<0>(false);
-		*leftLowCut.get<1>().coefficients = *cutCoefficients[1];
-		leftLowCut.setBypassed<1>(false);
-		break;
-	}
-	case S_36:
-	{
-		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
-		leftLowCut.setBypassed<0>(false);
-		*leftLowCut.get<1>().coefficients = *cutCoefficients[1];
-		leftLowCut.setBypassed<1>(false);
-		*leftLowCut.get<2>().coefficients = *cutCoefficients[2];
-		leftLowCut.setBypassed<2>(false);
-		break;
-	}
-	case S_48:
-	{
-		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
-		leftLowCut.setBypassed<0>(false);
-		*leftLowCut.get<1>().coefficients = *cutCoefficients[1];
-		leftLowCut.setBypassed<1>(false);
-		*leftLowCut.get<2>().coefficients = *cutCoefficients[2];
-		leftLowCut.setBypassed<2>(false);
-		*leftLowCut.get<3>().coefficients = *cutCoefficients[3];
-		leftLowCut.setBypassed<3>(false);
-		break;
-	}
-	break;
-	}
+	updateCutFilter(leftLowCut, cutCoefficients, chainSettings.lowCutSlope);
 
 	auto& rightLowCut = rightChain.get<ChainPossition::LowCut>();
 
-	rightLowCut.setBypassed<0>(true);
-	rightLowCut.setBypassed<1>(true);
-	rightLowCut.setBypassed<2>(true);
-	rightLowCut.setBypassed<3>(true);
-
-	switch (chainSettings.lowCutSlope)
-	{
-	case S_12:
-	{
-		*rightLowCut.get<0>().coefficients = *cutCoefficients[0];
-		rightLowCut.setBypassed<0>(false);
-		break;
-	}
-	case S_24:
-	{
-		*rightLowCut.get<0>().coefficients = *cutCoefficients[0];
-		rightLowCut.setBypassed<0>(false);
-		*rightLowCut.get<1>().coefficients = *cutCoefficients[1];
-		rightLowCut.setBypassed<1>(false);
-		break;
-	}
-	case S_36:
-	{
-		*rightLowCut.get<0>().coefficients = *cutCoefficients[0];
-		rightLowCut.setBypassed<0>(false);
-		*rightLowCut.get<1>().coefficients = *cutCoefficients[1];
-		rightLowCut.setBypassed<1>(false);
-		*rightLowCut.get<2>().coefficients = *cutCoefficients[2];
-		rightLowCut.setBypassed<2>(false);
-		break;
-	}
-	case S_48:
-	{
-		*rightLowCut.get<0>().coefficients = *cutCoefficients[0];
-		rightLowCut.setBypassed<0>(false);
-		*rightLowCut.get<1>().coefficients = *cutCoefficients[1];
-		rightLowCut.setBypassed<1>(false);
-		*rightLowCut.get<2>().coefficients = *cutCoefficients[2];
-		rightLowCut.setBypassed<2>(false);
-		*rightLowCut.get<3>().coefficients = *cutCoefficients[3];
-		rightLowCut.setBypassed<3>(false);
-		break;
-	}
-	break;
-	}
+	updateCutFilter(rightLowCut, cutCoefficients, chainSettings.lowCutSlope);
 
 	//We need to extract left and right chanel from buffer
 
@@ -384,6 +296,57 @@ void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSetti
 void SoundWizardAudioProcessor::updateCoefficient(Coefficients& old, const Coefficients& replacements)
 {
 	*old = *replacements;
+}
+
+template<typename ChainType, typename CoefficientType>
+inline void SoundWizardAudioProcessor::updateCutFilter(ChainType & leftLowCut, const CoefficientType & cutCoefficients, const Slope& lowCutSlope)
+{
+
+	leftLowCut.setBypassed<0>(true);
+	leftLowCut.setBypassed<1>(true);
+	leftLowCut.setBypassed<2>(true);
+	leftLowCut.setBypassed<3>(true);
+
+	switch (lowCutSlope)
+	{
+	case S_12:
+	{
+		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
+		leftLowCut.setBypassed<0>(false);
+		break;
+	}
+	case S_24:
+	{
+		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
+		leftLowCut.setBypassed<0>(false);
+		*leftLowCut.get<1>().coefficients = *cutCoefficients[1];
+		leftLowCut.setBypassed<1>(false);
+		break;
+	}
+	case S_36:
+	{
+		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
+		leftLowCut.setBypassed<0>(false);
+		*leftLowCut.get<1>().coefficients = *cutCoefficients[1];
+		leftLowCut.setBypassed<1>(false);
+		*leftLowCut.get<2>().coefficients = *cutCoefficients[2];
+		leftLowCut.setBypassed<2>(false);
+		break;
+	}
+	case S_48:
+	{
+		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
+		leftLowCut.setBypassed<0>(false);
+		*leftLowCut.get<1>().coefficients = *cutCoefficients[1];
+		leftLowCut.setBypassed<1>(false);
+		*leftLowCut.get<2>().coefficients = *cutCoefficients[2];
+		leftLowCut.setBypassed<2>(false);
+		*leftLowCut.get<3>().coefficients = *cutCoefficients[3];
+		leftLowCut.setBypassed<3>(false);
+		break;
+	}
+	break;
+	}
 }
 
 //==============================================================================
