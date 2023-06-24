@@ -96,7 +96,6 @@ void SoundWizardAudioProcessor::prepareToPlay(double sampleRate, int samplesPerB
 	// Use this method as the place to do any pre-playback
 	// initialisation that you need..
 
-
 //Prepare two chanels output
 	juce::dsp::ProcessSpec spec;
 
@@ -168,11 +167,9 @@ void SoundWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 		(chainSettings.lowCutSlope + 1) * 2);
 
 	auto& leftLowCut = leftChain.get<ChainPossition::LowCut>();
-
 	updateCutFilter(leftLowCut, cutCoefficients, chainSettings.lowCutSlope);
 
 	auto& rightLowCut = rightChain.get<ChainPossition::LowCut>();
-
 	updateCutFilter(rightLowCut, cutCoefficients, chainSettings.lowCutSlope);
 
 	//We need to extract left and right chanel from buffer
@@ -289,64 +286,51 @@ void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSetti
 		chainSettings.peakQuality,
 		juce::Decibels::decibelsToGain(chainSettings.peakGainDecibels));
 
-	updateCoefficient(leftChain.get<ChainPossition::Peak>().coefficients, peekCoefficient);
-	updateCoefficient(rightChain.get<ChainPossition::Peak>().coefficients, peekCoefficient);
+	updateCoefficients(leftChain.get<ChainPossition::Peak>().coefficients, peekCoefficient);
+	updateCoefficients(rightChain.get<ChainPossition::Peak>().coefficients, peekCoefficient);
 }
 
-void SoundWizardAudioProcessor::updateCoefficient(Coefficients& old, const Coefficients& replacements)
+void SoundWizardAudioProcessor::updateCoefficients(Coefficients& old, const Coefficients& replacements)
 {
 	*old = *replacements;
 }
 
 template<typename ChainType, typename CoefficientType>
-inline void SoundWizardAudioProcessor::updateCutFilter(ChainType & leftLowCut, const CoefficientType & cutCoefficients, const Slope& lowCutSlope)
+void SoundWizardAudioProcessor::updateCutFilter(ChainType& chain,
+		const CoefficientType& coefficients,
+		const Slope& slope)
 {
+	chain.setBypassed<0>(true);
+	chain.setBypassed<1>(true);
+	chain.setBypassed<2>(true);
+	chain.setBypassed<3>(true);
 
-	leftLowCut.setBypassed<0>(true);
-	leftLowCut.setBypassed<1>(true);
-	leftLowCut.setBypassed<2>(true);
-	leftLowCut.setBypassed<3>(true);
+	switch( slope )
+    {
+        case S_48:
+        {
+            updateSlope<3>(chain, coefficients);
+        }
+        case S_36:
+        {
+            updateSlope<2>(chain, coefficients);
+        }
+        case S_24:
+        {
+            updateSlope<1>(chain, coefficients);
+        }
+        case S_12:
+        {
+            updateSlope<0>(chain, coefficients);
+        }
+    }
+}
 
-	switch (lowCutSlope)
-	{
-	case S_12:
-	{
-		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
-		leftLowCut.setBypassed<0>(false);
-		break;
-	}
-	case S_24:
-	{
-		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
-		leftLowCut.setBypassed<0>(false);
-		*leftLowCut.get<1>().coefficients = *cutCoefficients[1];
-		leftLowCut.setBypassed<1>(false);
-		break;
-	}
-	case S_36:
-	{
-		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
-		leftLowCut.setBypassed<0>(false);
-		*leftLowCut.get<1>().coefficients = *cutCoefficients[1];
-		leftLowCut.setBypassed<1>(false);
-		*leftLowCut.get<2>().coefficients = *cutCoefficients[2];
-		leftLowCut.setBypassed<2>(false);
-		break;
-	}
-	case S_48:
-	{
-		*leftLowCut.get<0>().coefficients = *cutCoefficients[0];
-		leftLowCut.setBypassed<0>(false);
-		*leftLowCut.get<1>().coefficients = *cutCoefficients[1];
-		leftLowCut.setBypassed<1>(false);
-		*leftLowCut.get<2>().coefficients = *cutCoefficients[2];
-		leftLowCut.setBypassed<2>(false);
-		*leftLowCut.get<3>().coefficients = *cutCoefficients[3];
-		leftLowCut.setBypassed<3>(false);
-		break;
-	}
-	break;
-	}
+template<int Index, typename ChainType, typename CoefficientType>
+void SoundWizardAudioProcessor::updateSlope(ChainType& chainType, const CoefficientType& coefficients)
+{
+	updateCoefficients(chainType.template get<Index>().coefficients, coefficients[Index]);
+    chainType.template setBypassed<Index>(false);
 }
 
 //==============================================================================
