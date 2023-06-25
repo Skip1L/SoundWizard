@@ -27,11 +27,22 @@ SoundWizardAudioProcessorEditor::SoundWizardAudioProcessorEditor(SoundWizardAudi
 		addAndMakeVisible(comp);
 	}
 
+	const auto& params = audioProcessor.getParameters();
+
+	for ( auto param : params )
+		param->addListener(this);
+
+	startTimerHz(60); 
+
 	setSize(600, 400);
 }
 
 SoundWizardAudioProcessorEditor::~SoundWizardAudioProcessorEditor()
 {
+	const auto& params = audioProcessor.getParameters();
+
+	for ( auto param : params )
+		param->removeListener(this);
 }
 
 //==============================================================================
@@ -137,10 +148,14 @@ void SoundWizardAudioProcessorEditor::parameterValueChanged(int parameterIndex, 
 
 void SoundWizardAudioProcessorEditor::timerCallback()
 {
-	/*if(parametersChanged.compareAndSetValue(false, true))
+	if(parametersChanged.compareAndSetBool(false, true))
 	{
+		auto chainSettings = getChainSettings(audioProcessor.apvts);
+		auto peakCoefficient = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
+		updateCoefficients(monoChain.get<ChainPossition::Peak>().coefficients, peakCoefficient);
 
-	}*/
+		repaint();
+	}
 }
 
 std::vector<juce::Component*> SoundWizardAudioProcessorEditor::getComps()
