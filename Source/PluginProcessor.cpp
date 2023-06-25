@@ -289,22 +289,6 @@ Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRat
 		juce::Decibels::decibelsToGain(chainSettings.peakGainDecibels));
 }
 
-inline auto makeLowCutFilter(const ChainSettings& chainSettings, double sampleRate)
-{
-	return juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(
-		chainSettings.lowCutFreq,
-		sampleRate,
-		(chainSettings.lowCutSlope + 1) * 2);
-}
-
-inline auto makeHighCutFilter(const ChainSettings& chainSettings, double sampleRate)
-{
-	return juce::dsp::FilterDesign<float>::designIIRLowpassHighOrderButterworthMethod(
-		chainSettings.highCutFreq,
-		sampleRate,
-		(chainSettings.highCutSlope + 1) * 2);
-}
-
 
 void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSettings)
 {
@@ -316,7 +300,7 @@ void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSetti
 
 void SoundWizardAudioProcessor::updateLowCutFilters(const ChainSettings& chainSettings)
 {
-	auto lowCutCoefficients = makeLowCutFilter(chainSettings,getSampleRate());
+	auto lowCutCoefficients = makeLowCutFilter(chainSettings, getSampleRate());
 
 	auto& leftLowCut = leftChain.get<ChainPossition::LowCut>();
 	auto& rightLowCut = rightChain.get<ChainPossition::LowCut>();
@@ -345,7 +329,7 @@ void SoundWizardAudioProcessor::updateFilters()
 }
 
 template<typename ChainType, typename CoefficientType>
-void SoundWizardAudioProcessor::updateCutFilter(ChainType& chain,
+void updateCutFilter(ChainType& chain,
 		const CoefficientType& coefficients,
 		const Slope& slope)
 {
@@ -381,6 +365,8 @@ inline void updateSlope(ChainType & chainType, const CoefficientType & coefficie
 	updateCoefficients(chainType.template get<Index>().coefficients, coefficients[Index]);
     chainType.template setBypassed<Index>(false);
 }
+
+
 
 //==============================================================================
 // This creates new instances of the plugin..
