@@ -38,6 +38,12 @@ private:
 
     RotarySlyder peakFreqSlider, peakGainSlider, peakQualitySlider, lowCutFreqSlider, highCutFreqSlider, lowCutSlopeSlider, highCutSlopeSlider;
 
+    //Connect custom slider to back
+    using apvts = juce::AudioProcessorValueTreeState;
+    using attachment = apvts::SliderAttachment;
+
+    attachment peakFreqSliderAttachment, peakGainSliderAttachment, peakQualitySliderAttachment, lowCutFreqSliderAttachment, highCutFreqSliderAttachment, lowCutSlopeSliderAttachment, highCutSlopeSliderAttachment;
+
     std::vector<juce::Component*> getComps();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SoundWizardAudioProcessorEditor)
