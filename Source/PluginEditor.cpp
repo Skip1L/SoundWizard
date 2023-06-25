@@ -9,21 +9,23 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-ResponseCurveComponent::ResponseCurveComponent(SoundWizardAudioProcessor& processor):audioProcessor(processor)
+ResponseCurveComponent::ResponseCurveComponent(SoundWizardAudioProcessor& processor) :audioProcessor(processor)
 {
 	const auto& params = audioProcessor.getParameters();
 
-	for ( auto param : params )
+	for (auto param : params)
 		param->addListener(this);
 
-	startTimerHz(60); 
+	updateChain();
+
+	startTimerHz(60);
 }
 
 ResponseCurveComponent::~ResponseCurveComponent()
 {
 	const auto& params = audioProcessor.getParameters();
 
-	for ( auto param : params )
+	for (auto param : params)
 		param->removeListener(this);
 }
 
@@ -34,22 +36,27 @@ void ResponseCurveComponent::parameterValueChanged(int parameterIndex, float new
 
 void ResponseCurveComponent::timerCallback()
 {
-	if(parametersChanged.compareAndSetBool(false, true))
+	if (parametersChanged.compareAndSetBool(false, true))
 	{
-		//Peak chain
-		auto chainSettings = getChainSettings(audioProcessor.apvts);
-		auto peakCoefficient = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
-		updateCoefficients(monoChain.get<ChainPossition::Peak>().coefficients, peakCoefficient);
-
-		//Cut chain
-		auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
-		auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
-
-		updateCutFilter(monoChain.get<ChainPossition::LowCut>(), lowCutCoefficients, chainSettings.lowCutSlope);
-		updateCutFilter(monoChain.get<ChainPossition::HighCut>(), highCutCoefficients, chainSettings.highCutSlope);
+		updateChain();
 
 		repaint();
 	}
+}
+
+void ResponseCurveComponent::updateChain()
+{
+	//Peak chain
+	auto chainSettings = getChainSettings(audioProcessor.apvts);
+	auto peakCoefficient = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
+	updateCoefficients(monoChain.get<ChainPossition::Peak>().coefficients, peakCoefficient);
+
+	//Cut chain
+	auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
+	auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
+
+	updateCutFilter(monoChain.get<ChainPossition::LowCut>(), lowCutCoefficients, chainSettings.lowCutSlope);
+	updateCutFilter(monoChain.get<ChainPossition::HighCut>(), highCutCoefficients, chainSettings.highCutSlope);
 }
 
 void ResponseCurveComponent::paint(juce::Graphics& g)
@@ -162,8 +169,6 @@ void SoundWizardAudioProcessorEditor::paint(juce::Graphics& g)
 	using namespace juce;
 	// (Our component is opaque, so we must completely fill the background with a solid colour)
 	g.fillAll(Colours::black);
-
-	
 }
 
 void SoundWizardAudioProcessorEditor::resized()
@@ -172,7 +177,7 @@ void SoundWizardAudioProcessorEditor::resized()
 	// subcomponents in your editor..
 
 	auto bounds = getLocalBounds();
-	auto responseArea = bounds.removeFromTop(bounds.getHeight()*0.33);
+	auto responseArea = bounds.removeFromTop(bounds.getHeight() * 0.33);
 
 	responseCurveComponent.setBounds(responseArea);
 

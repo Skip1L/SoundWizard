@@ -12,8 +12,8 @@
 #include "PluginProcessor.h"
 
 struct RotarySlyder : juce::Slider
-{
-	RotarySlyder() : juce::Slider(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag, juce::Slider::TextEntryBoxPosition::NoTextBox)
+{ 
+	RotarySlyder() : juce::Slider(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag, juce::Slider::TextEntryBoxPosition::TextBoxBelow)
 	{
 	}
 };
@@ -28,6 +28,8 @@ struct ResponseCurveComponent : juce::Component,
 	void parameterValueChanged(int parameterIndex, float newValue) override;
 
 	void parameterGestureChanged(int parameterIndex, bool gestureIsStarting) override { };
+
+	void updateChain();
 
 	void timerCallback() override;
 
