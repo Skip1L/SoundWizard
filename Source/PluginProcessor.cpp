@@ -275,7 +275,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SoundWizardAudioProcessor::c
 
 
 
-void updateCoefficients(Coefficients& old, const Coefficients& replacements)
+inline void updateCoefficients(Coefficients& old, const Coefficients& replacements)
 {
 	*old = *replacements;
 }
@@ -289,6 +289,22 @@ Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRat
 		juce::Decibels::decibelsToGain(chainSettings.peakGainDecibels));
 }
 
+inline auto makeLowCutFilter(const ChainSettings& chainSettings, double sampleRate)
+{
+	return juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(
+		chainSettings.lowCutFreq,
+		sampleRate,
+		(chainSettings.lowCutSlope + 1) * 2);
+}
+
+inline auto makeHighCutFilter(const ChainSettings& chainSettings, double sampleRate)
+{
+	return juce::dsp::FilterDesign<float>::designIIRLowpassHighOrderButterworthMethod(
+		chainSettings.highCutFreq,
+		sampleRate,
+		(chainSettings.highCutSlope + 1) * 2);
+}
+
 
 void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSettings)
 {
@@ -300,10 +316,7 @@ void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSetti
 
 void SoundWizardAudioProcessor::updateLowCutFilters(const ChainSettings& chainSettings)
 {
-	auto lowCutCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(
-		chainSettings.lowCutFreq,
-		getSampleRate(),
-		(chainSettings.lowCutSlope + 1) * 2);
+	auto lowCutCoefficients = makeLowCutFilter(chainSettings,getSampleRate());
 
 	auto& leftLowCut = leftChain.get<ChainPossition::LowCut>();
 	auto& rightLowCut = rightChain.get<ChainPossition::LowCut>();
@@ -313,10 +326,7 @@ void SoundWizardAudioProcessor::updateLowCutFilters(const ChainSettings& chainSe
 
 void SoundWizardAudioProcessor::updateHighCutFilters(const ChainSettings& chainSettings)
 {
-	auto highCutCoefficients = juce::dsp::FilterDesign<float>::designIIRLowpassHighOrderButterworthMethod(
-		chainSettings.highCutFreq,
-		getSampleRate(),
-		(chainSettings.highCutSlope + 1) * 2);
+	auto highCutCoefficients = makeHighCutFilter(chainSettings,getSampleRate());
 
 	auto& leftHighCut = leftChain.get<ChainPossition::HighCut>();
 	auto& rightHighCut = rightChain.get<ChainPossition::HighCut>();
@@ -366,7 +376,7 @@ void SoundWizardAudioProcessor::updateCutFilter(ChainType& chain,
 }
 
 template<int Index, typename ChainType, typename CoefficientType>
-void SoundWizardAudioProcessor::updateSlope(ChainType& chainType, const CoefficientType& coefficients)
+inline void updateSlope(ChainType & chainType, const CoefficientType & coefficients)
 {
 	updateCoefficients(chainType.template get<Index>().coefficients, coefficients[Index]);
     chainType.template setBypassed<Index>(false);
