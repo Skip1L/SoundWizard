@@ -97,7 +97,7 @@ void SoundWizardAudioProcessor::prepareToPlay(double sampleRate, int samplesPerB
 	// initialisation that you need..
 
 //Prepare two chanels output
-	juce::dsp::ProcessSpec spec;
+	juce::dsp::ProcessSpec spec{};
 
 	spec.maximumBlockSize = samplesPerBlock;
 
@@ -273,18 +273,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout SoundWizardAudioProcessor::c
 	return layout;
 }
 
-void SoundWizardAudioProcessor::updateCoefficients(Coefficients& old, const Coefficients& replacements)
+
+
+void updateCoefficients(Coefficients& old, const Coefficients& replacements)
 {
 	*old = *replacements;
 }
 
-void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSettings)
+Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRate)
 {
-	auto peekCoefficient = juce::dsp::IIR::Coefficients<float>::makePeakFilter(
-		getSampleRate(),
+	return juce::dsp::IIR::Coefficients<float>::makePeakFilter(
+		sampleRate,
 		chainSettings.peakFreq,
 		chainSettings.peakQuality,
 		juce::Decibels::decibelsToGain(chainSettings.peakGainDecibels));
+}
+
+
+void SoundWizardAudioProcessor::updatePeakFilter(const ChainSettings& chainSettings)
+{
+	auto peekCoefficient = makePeakFilter(chainSettings, getSampleRate());
 
 	updateCoefficients(leftChain.get<ChainPossition::Peak>().coefficients, peekCoefficient);
 	updateCoefficients(rightChain.get<ChainPossition::Peak>().coefficients, peekCoefficient);

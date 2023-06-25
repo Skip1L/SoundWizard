@@ -18,6 +18,13 @@ enum Slope
 	S_48
 };
 
+enum ChainPossition
+{
+	LowCut,
+	Peak,
+	HighCut
+};
+
 struct ChainSettings
 {
 	float peakFreq{ 0 }, peakGainDecibels{ 0 }, peakQuality{ 1.f }, lowCutFreq{ 0 }, highCutFreq{ 0 };
@@ -26,6 +33,17 @@ struct ChainSettings
 };
 
 ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& apvts);
+
+using Filter = juce::dsp::IIR::Filter<float>;
+
+using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>;
+
+using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
+
+using Coefficients = Filter::CoefficientsPtr;
+static void updateCoefficients(Coefficients& old, const Coefficients& replacements);
+
+Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRate);
 //==============================================================================
 /**
 */
@@ -76,25 +94,11 @@ public:
 	juce::AudioProcessorValueTreeState apvts {*this, nullptr, "Parameters", createParameterLayout()};
 
 private:
-	using Filter = juce::dsp::IIR::Filter<float>;
 
-	using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>;
-
-	using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
 	//Create a stereo using 2 mono channels
 	MonoChain leftChain, rightChain;
 
-	enum ChainPossition
-	{
-		LowCut,
-		Peak,
-		HighCut
-	};
-
 	void updatePeakFilter(const ChainSettings& chainSettings);
-
-	using Coefficients = Filter::CoefficientsPtr;
-	static void updateCoefficients(Coefficients& old, const Coefficients& replacements);
 
 	template<int Index, typename ChainType, typename CoefficientType>
 	void updateSlope(ChainType& chainType, const CoefficientType& coefficients);
