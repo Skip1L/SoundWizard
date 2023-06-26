@@ -107,6 +107,11 @@ void SoundWizardAudioProcessor::prepareToPlay(double sampleRate, int samplesPerB
 
 	leftChain.prepare(spec);
 	rightChain.prepare(spec);
+
+	updateFilters();
+
+	leftChanelQueue.prepare(samplesPerBlock);
+	rightChanelQueue.prepare(samplesPerBlock);
 }
 
 void SoundWizardAudioProcessor::releaseResources()
@@ -171,6 +176,9 @@ void SoundWizardAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 
 	leftChain.process(leftContext);
 	rightChain.process(rightContext);
+
+	leftChanelQueue.update(buffer);
+	rightChanelQueue.update(buffer);
 }
 
 //==============================================================================

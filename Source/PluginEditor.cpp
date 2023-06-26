@@ -9,12 +9,15 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-ResponseCurveComponent::ResponseCurveComponent(SoundWizardAudioProcessor& processor) :audioProcessor(processor)
+ResponseCurveComponent::ResponseCurveComponent(SoundWizardAudioProcessor& processor) :audioProcessor(processor), leftChannelQueue(&audioProcessor.leftChanelQueue)
 {
 	const auto& params = audioProcessor.getParameters();
 
 	for (auto param : params)
 		param->addListener(this);
+
+	leftChannelFFTDataGenerator.changeOrder(FFTOrder::order2048);
+	monoBuffer.setSize(1, leftChannelFFTDataGenerator.getFFTSize());
 
 	updateChain();
 
@@ -36,12 +39,52 @@ void ResponseCurveComponent::parameterValueChanged(int parameterIndex, float new
 
 void ResponseCurveComponent::timerCallback()
 {
+	juce::AudioBuffer<float> tempIncomingBuffer;
+
+	while (leftChannelQueue->getNumCompleteBuffersAvailable() > 0)
+		if (leftChannelQueue->getAudioBuffer(tempIncomingBuffer))
+		{
+			auto size = tempIncomingBuffer.getNumSamples();
+			//shifting over the data
+			juce::FloatVectorOperations::copy(
+				monoBuffer.getWritePointer(0, 0),
+				monoBuffer.getReadPointer(0, size),
+				monoBuffer.getNumSamples() - size);
+			//copying this to the end
+			juce::FloatVectorOperations::copy(
+				monoBuffer.getWritePointer(0, monoBuffer.getNumSamples() - size),
+				tempIncomingBuffer.getReadPointer(0, 0),
+				size);
+
+			leftChannelFFTDataGenerator.produceFFTDataForRendering(monoBuffer, -48.f);
+		}
+
+	const auto fftBounds = getLocalBounds().toFloat();
+	const auto fftSize = leftChannelFFTDataGenerator.getFFTSize();
+
+	const auto binWidth = audioProcessor.getSampleRate() / (double)fftSize;
+
+	while (leftChannelFFTDataGenerator.getNumAvailableFFTDataBlocks() > 0)
+	{
+		std::vector<float> fftData;
+		if (leftChannelFFTDataGenerator.getFFTData(fftData))
+		{
+			pathProducer.generatePath(fftData, fftBounds, fftSize, binWidth, -48.f);
+		}
+	}
+	while (pathProducer.getNumPathsAvailable())
+	{
+		pathProducer.getPath(leftPanelFFTPath);
+	}
+
 	if (parametersChanged.compareAndSetBool(false, true))
 	{
+		//update the monochain
 		updateChain();
-
-		repaint();
+		//signal a repaint
 	}
+
+	repaint();
 }
 
 void ResponseCurveComponent::updateChain()
@@ -64,6 +107,8 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
 	using namespace juce;
 	// (Our component is opaque, so we must completely fill the background with a solid colour)
 	g.fillAll(Colours::black);
+
+	g.drawImage(background, getLocalBounds().toFloat());
 
 	auto responseArea = getLocalBounds();
 
@@ -125,11 +170,48 @@ void ResponseCurveComponent::paint(juce::Graphics& g)
 		responseCurve.lineTo(responseArea.getX() + i, map(mags[i]));
 	}
 
+	g.setColour(Colours::blue);
+	g.strokePath(leftPanelFFTPath, PathStrokeType(1.f));
+
 	g.setColour(Colours::antiquewhite);
 	g.drawRoundedRectangle(responseArea.toFloat(), 4.f, 1.f);
 
 	g.setColour(Colours::white);
 	g.strokePath(responseCurve, PathStrokeType(2.f));
+}
+
+void ResponseCurveComponent::resized()
+{
+	using namespace juce;
+	background = Image(Image::PixelFormat::RGB, getWidth(), getHeight(), true);
+
+	Graphics g(background);
+
+	Array<float> freqs
+	{
+		50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 20000
+	};
+
+	g.setColour(Colours::darkgrey);
+
+	for (auto f : freqs)
+	{
+		auto normX = mapFromLog10(f, 20.f, 20000.f);
+
+		g.drawVerticalLine(getWidth() * normX, 0.f, getHeight());
+	}
+
+	Array<float> gain
+	{
+		-24, -12, 0, 12, 24
+	};
+
+	for (auto gDb : gain)
+	{
+		auto y = jmap(gDb, -24.f, 24.f, float(getHeight()), 0.f);
+
+		g.drawHorizontalLine(y, 0.f, getWidth());
+	}
 }
 
 std::vector<juce::Component*> SoundWizardAudioProcessorEditor::getComps()
@@ -177,7 +259,8 @@ void SoundWizardAudioProcessorEditor::resized()
 	// subcomponents in your editor..
 
 	auto bounds = getLocalBounds();
-	auto responseArea = bounds.removeFromTop(bounds.getHeight() * 0.33);
+	float hRatio = 25.f / 100.f;
+	auto responseArea = bounds.removeFromTop(bounds.getHeight() * hRatio);
 
 	responseCurveComponent.setBounds(responseArea);
 
